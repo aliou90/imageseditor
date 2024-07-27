@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="{% static 'editor/styles.css' %}">
 </head>
 <body class="d-flex flex-column min-vh-100">
-    <header class="bg-light py-2 mb-1 border-bottom">
+    <header class="bg-light py-2 mb-2 border-bottom">
         <nav class="navbar navbar-light bg-light">
             <div class="container-fluid">
               <a class="navbar-brand" href="#">
@@ -40,9 +40,9 @@
         </div>
     </header>
     <main class="container mt-0 pt-0">
-        <div class="row border border-primary p-4 mb-5">
+        <div class="row border border-primary p-2 mb-5">
             <!-- Formulaire de traitement d'images -->
-            <div class="col-md-5" id="plt_pc">
+            <div class="col-md-5 border-white rounded p-2" id="plt_pc">
                 <form id="uploadForm" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <!--- Résolution -->

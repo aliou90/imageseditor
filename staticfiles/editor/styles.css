@@ -1,0 +1,156 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+header {
+    background-color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+main {
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+
+#imagePreview {
+    transition: opacity 1s ease-in-out;
+}
+
+#uploadInput,
+#startButton {
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+    border-radius: 15px;
+    border: 1px solid black;
+}
+
+/* Ajustement de la taille du sélecteur de couleur */
+.form-control-color {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+}
+
+.form-check-input:focus {
+    outline: 2px solid white;
+}
+
+/*-----------------------------------------------------------------
+    POUR L'AFFICHAGE SUR MOBILE
+------------------------------------------------------------------*/
+/* Masquer le bloc #plt_phone sur les ordinateurs */
+@media (min-width: 992px) {
+    #plt_phone {
+        display: none;
+    }
+}
+
+/* Afficher le bloc #plt_phone sur les tablettes et mobiles */
+@media (max-width: 991px) {
+    #plt_phone {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        width: 100%;
+        position: fixed;
+        bottom: 0;
+        background: #fff;
+        z-index: 1000;
+    }
+
+    #plt_phone i {
+        font-size: 36px; /* Agrandir les icônes */
+        color: #007bff;
+        cursor: pointer;
+        flex-grow: 1;
+        text-align: center;
+    }
+
+    #plt_phone i:hover {
+        color: #0056b3;
+    }
+
+    .popup {
+        display: none;
+        position: fixed;
+        bottom: 60px; /* Positionnement au-dessus de la barre d'icônes */
+        left: 0;
+        right: 0;
+        margin: auto;
+        max-width: 98%;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+    }
+
+    .popup.active {
+        display: block;
+    }
+}
+
+/*-----------------------------------------------------------
+        ZONE D'IMAGE
+------------------------------------------------------------*/
+.drop-zone {
+    height: 400px;
+    width: 400px;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    background-image: url('/static/editor/images/upload_bg.png'); /* Chemin vers votre image */
+    background-size: cover; /* Ajuster l'image pour couvrir toute la zone */
+    background-position: center; /* Centrer l'image */
+}
+
+/* Style pour le label */
+body {
+    color: rgb(37, 34, 34); /* Couleur du texte */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7); /* Ombre pour le texte */
+    font-size: 1.2em; /* Taille du texte */
+}
+
+.drop-zone img {
+    max-width: 100%;
+    max-height: 100%;
+    display: none;
+}
+
+.drop-zone.dragover {
+    border-color: #000;
+}
+
+
+/*-----------------------------------------------------------
+    FOOTER
+-------------------------------------------------------------*/
+
+footer .fab {
+    transition: color 0.3s;
+}
+
+footer .fab:hover {
+    color: #ddd;
+}

@@ -372,3 +372,13 @@ function initialise_state() {
     document.getElementById('contrast').value = 0; // Réinitialiser contraste à 0
     document.getElementById('contrastValue').innerText = 0; // Afficher la valeur de contraste
 }
+
+
+
+/*----------------------------------------------------------------
+        SUPPRIMER DERNIÈRE IMAGE TEMPORAIRE
+------------------------------------------------------------------*/
+window.addEventListener('beforeunload', function () {
+    // Envoyer une requête pour signaler la fermeture de la page
+    navigator.sendBeacon('/delete_temp_image/');
+});

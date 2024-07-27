@@ -13,4 +13,5 @@ urlpatterns = [
     path('process-images/', process_images, name='process_images'),
     path('feedback/', feedback_view, name='feedback'),
     path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
+    path('delete_temp_image/', views.delete_temp_image, name='delete_temp_image'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

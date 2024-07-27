@@ -1,10 +1,16 @@
 # views.py
+from django.contrib.sessions.models import Session
 from django.shortcuts import render, redirect
-from .models import UploadedImage
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files.base import ContentFile
 from django.conf import settings
+from django.utils import timezone
+from django.core.mail import send_mail  # gestiond'e-mails
+from django.db import transaction, connection
+from .models import UploadedImage
+from .models import Feedback
+from .utils import correct_image_orientation, remove_background, resize_image, apply_rotation, vertical_flip, horizontal_flip, adjust_luminosity, adjust_contrast, add_new_background
 import zipfile
 import io
 from PIL import Image, ImageTk, ExifTags, ImageFilter, ImageDraw, ImageFont, ImageEnhance, ImageOps, ImageChops
@@ -14,10 +20,6 @@ import uuid
 import cv2
 import traceback
 import numpy as np
-from .utils import correct_image_orientation, remove_background, resize_image, apply_rotation, vertical_flip, horizontal_flip, adjust_luminosity, adjust_contrast, add_new_background
-# gestiond'e-mails
-from django.core.mail import send_mail
-from .models import Feedback
 
 
 def index(request):
@@ -138,48 +140,162 @@ def process_images(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
-
-# SAUVEGARDER FICHIER TEMPORAIRE
 # Configuration du journal
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
 def upload_image(request):
+    delete_expired_images()  # Appel de la fonction de nettoyage ici
+    yearly_reset_uploaded_images() # Appel de la fonction de vidange ici
+
     try:
+        # Récupérer ou créer un session_id
+        session_id = request.session.get('session_id')
+        if not session_id:
+            session_id = str(uuid.uuid4())  # Créer un nouvel ID unique
+            request.session['session_id'] = session_id
+            request.session.set_expiry(30 * 24 * 60 * 60)  # Durée de vie de la session de 24 heures
+
+        print(f"session_id: {session_id}")
+        
         if request.method == 'POST' and request.FILES.get('images'):
             image = request.FILES['images']
             temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
             os.makedirs(temp_dir, exist_ok=True)
 
-            # Vider le répertoire temporaire
-            for filename in os.listdir(temp_dir):
-                file_path = os.path.join(temp_dir, filename)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        os.rmdir(file_path)
-                except Exception as e:
-                    logger.error(f'Erreur lors de la suppression du fichier {file_path}. Raison: {e}')
+            # Vérifier si une image existe déjà pour le session_id
+            existing_image = UploadedImage.objects.filter(session_id=session_id).first()
 
-            temp_file_name = f"{uuid.uuid4().hex}_{image.name}"
-            temp_file_path = os.path.join(temp_dir, temp_file_name)
+            # Si une image existe, supprimer l'ancienne du système de fichiers
+            if existing_image:
+                old_image_name = existing_image.image.name  # Récupérer le nom de l'ancienne image
+                old_image_path = os.path.join(temp_dir, old_image_name)
 
-            with open(temp_file_path, 'wb') as temp_file:
-                for chunk in image.chunks():
-                    temp_file.write(chunk)
+                # Supprimer l'ancienne image du répertoire temporaire
+                if os.path.isfile(old_image_path):  # Vérifie si c'est un fichier
+                    os.remove(old_image_path)
+                    logger.debug(f'Ancienne image supprimée du répertoire temporaire : {old_image_path}')
+                else:
+                    logger.warning(f'Ancienne image non trouvée ou n\'est pas un fichier dans le répertoire temporaire : {old_image_path}')
 
-            temp_url = os.path.join(settings.MEDIA_URL, 'temp', temp_file_name)
-            logger.debug(f"Image temporaire enregistrée à : {temp_file_path}, URL : {temp_url}")
-            return JsonResponse({'temp_url': temp_url})
-        
+                # Mettre à jour l'enregistrement avec la nouvelle image
+                temp_file_name = f"{uuid.uuid4().hex}_{image.name}"
+                temp_file_path = os.path.join(temp_dir, temp_file_name)
+
+                with open(temp_file_path, 'wb') as temp_file:
+                    for chunk in image.chunks():
+                        temp_file.write(chunk)
+
+                # Mettre à jour l'enregistrement dans la base de données
+                existing_image.image = temp_file_name
+                existing_image.save()
+                logger.debug(f"Image mise à jour : {temp_file_path}, URL : {temp_file_name}")
+
+                temp_url = os.path.join(settings.MEDIA_URL, 'temp', temp_file_name)
+                return JsonResponse({'temp_url': temp_url, 'session_id': session_id})
+
+            # Si aucune image n'existe, enregistrez la nouvelle image
+            else:
+                temp_file_name = f"{uuid.uuid4().hex}_{image.name}"
+                temp_file_path = os.path.join(temp_dir, temp_file_name)
+
+                with open(temp_file_path, 'wb') as temp_file:
+                    for chunk in image.chunks():
+                        temp_file.write(chunk)
+
+                # Enregistrer la nouvelle image
+                UploadedImage.objects.create(session_id=session_id, image=temp_file_name)
+                temp_url = os.path.join(settings.MEDIA_URL, 'temp', temp_file_name)
+                logger.debug(f"Image temporaire enregistrée à : {temp_file_path}, URL : {temp_url}")
+
+                return JsonResponse({'temp_url': temp_url, 'session_id': session_id})
+
         logger.error("Requête non valide ou fichier manquant")
         return JsonResponse({'error': 'Invalid request'}, status=400)
-    
+
     except Exception as e:
         logger.exception("Erreur lors du téléchargement de l'image")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# SUPPRESSION DES IMAGES ET ENREGISTREMENTS EXPIRÉS
+def delete_expired_images():
+    expired_images = UploadedImage.objects.filter(uploaded_at__lt=timezone.now() - timezone.timedelta(days=30))
+    for image in expired_images:
+        # Supprimer le fichier de temp_dir
+        temp_file_path = os.path.join(settings.MEDIA_ROOT, 'temp', os.path.basename(image.image.name))
+        if os.path.isfile(temp_file_path):
+            os.unlink(temp_file_path)
+
+        # Supprimer l'enregistrement de la base de données
+        image.delete()
+
+
+# SUPPRIMER DERNIÈRE IMAGE TEMPORAIRE POUR LA SESSION
+@csrf_exempt
+def delete_temp_image(request):
+    if request.method == 'POST':
+        # Récupérer l'ID de session
+        session_id = request.session.get('session_id')
+
+        if session_id:
+            # Récupérer l'image correspondant au session_id
+            uploaded_image = UploadedImage.objects.filter(session_id=session_id).first()
+            if uploaded_image:
+                # Chemin de l'image temporaire
+                temp_file_path = os.path.join(settings.MEDIA_ROOT, 'temp', os.path.basename(uploaded_image.image.name))
+                
+                # Supprimer l'image du répertoire temporaire
+                if os.path.isfile(temp_file_path):
+                    os.unlink(temp_file_path)
+                
+                # Mettre à jour l'enregistrement dans la base de données
+                uploaded_image.image = ''
+                uploaded_image.save()
+
+                return JsonResponse({'success': 'Image temporaire supprimée avec succès'})
+            else:
+                return JsonResponse({'error': 'Aucune image trouvée pour ce session_id'}, status=404)
+
+        return JsonResponse({'error': 'session_id non trouvé'}, status=400)
+
+    return JsonResponse({'error': 'Requête invalide'}, status=400)
+
+
+# VIDER LA TABLE DES IMAGES TEMPORAIRE APRÈS 1 ANS
+def yearly_reset_uploaded_images():
+    # Vérifier s'il existe des enregistrements datant de plus d'un an
+    if UploadedImage.objects.filter(uploaded_at__lt=timezone.now() - timezone.timedelta(days=365)).exists():
+        with transaction.atomic():
+            # Supprimer tous les enregistrements
+            UploadedImage.objects.all().delete()
+            logger.debug("La table UploadedImage a été réinitialisée.")
+
+            # Réinitialiser l'index auto-incrément
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name='editor_uploadedimage';")
+                logger.debug("L'index de la table UploadedImage a été réinitialisé.")
+
+            # Supprimer tous les fichiers dans temp_dir
+            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+            if os.path.exists(temp_dir):
+                for filename in os.listdir(temp_dir):
+                    file_path = os.path.join(temp_dir, filename)
+                    try:
+                        if os.path.isfile(file_path):
+                            os.unlink(file_path)
+                            logger.debug(f"Fichier supprimé : {file_path}")
+                        elif os.path.isdir(file_path):
+                            os.rmdir(file_path)
+                    except Exception as e:
+                        logger.error(f'Erreur lors de la suppression du fichier {file_path}. Raison: {e}')
+            else:
+                logger.warning("Le répertoire temporaire n'existe pas.")
+
+            # Supprimer toutes les sessions
+            Session.objects.all().delete()
+            logger.debug("Toutes les sessions en cours ont été réinitialisées.")
 
 
 # GESTION DES FEEDBACK
