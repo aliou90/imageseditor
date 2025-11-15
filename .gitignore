@@ -32,7 +32,7 @@ db.sqlite3
 # Static files (collected)
 staticfiles/
 # Optionnel: si vous utilisez whitenoise ou collectstatic pour prod
-/static/
+#/static/
 
 # IDEs et éditeurs
 .vscode/
