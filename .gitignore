@@ -17,9 +17,9 @@ ENV/
 .venv/
 
 # Django
-*.sqlite3
-db.sqlite3
-/media/
+# *.sqlite3
+# db.sqlite3
+# /media/
 *.pot
 *.py[cod]
 *.mo
