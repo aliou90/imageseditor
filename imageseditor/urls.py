@@ -19,6 +19,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.sitemaps.views import sitemap
 from .sitemaps import StaticViewSitemap
+from django.conf import settings
+from django.conf.urls.static import static
 
 sitemaps = {
     'static': StaticViewSitemap,
@@ -29,3 +31,8 @@ urlpatterns = [
     path('', include('editor.urls')),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 ]
+
+if settings.DEBUG:
+    # Pour servir les fichiers media et static en dev
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
