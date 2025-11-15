@@ -35,6 +35,7 @@ Le tout avec **visualisation en temps réel** pour voir instantanément les modi
 * **Python 3**
 * **Django**
 * **Pillow** pour le traitement d’images
+* **rembg** pour la suppresion d'arrière plan (AI)
 * **Bootstrap / CSS** pour l’interface
 
 ---
