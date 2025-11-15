@@ -25,9 +25,7 @@ SECRET_KEY = "django-insecure-&=m_i2x&q$c^xtqw2=p2%2yzavbawgfxsi69(my9stot^__%bd
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-
-ALLOWED_HOSTS = ['imageseditor.vercel.app']
-
+ALLOWED_HOSTS = ['editor.local', '127.0.0.1']
 
 
 # Application definition
